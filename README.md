@@ -42,10 +42,35 @@ X  →  L2 (opt.)  →  top-k rankings
 L2, when enabled, is only for ranking / influence. Keep the original
 `X` for the classifier.
 
-Influence:
+Distance / influence (`distance_metric`). Diagonal of $I$ is always 0.
 
-- Euclidean: $I(u,v) = 1 / d_2(u,v)$, diagonal 0
-- Cosine: $I(u,v) = 1 - d_{\cos}(u,v)$, diagonal 0
+**Euclidean**
+
+$$
+d_2 : \mathbb{R}^D \times \mathbb{R}^D \to [0, +\infty),
+\quad
+d_2(u,v) = \lVert u - v \rVert_2
+$$
+
+$$
+I : \mathbb{R}^D \times \mathbb{R}^D \to [0, +\infty),
+\quad
+I(u,v) = 1 / d_2(u,v)
+$$
+
+**Cosine** (scikit-learn: $d_{\cos} = 1 - \cos\theta$)
+
+$$
+d_{\cos} : \mathbb{R}^D \times \mathbb{R}^D \to [0, 2],
+\quad
+d_{\cos}(u,v) = 1 - \frac{u \cdot v}{\lVert u \rVert_2 \,\lVert v \rVert_2}
+$$
+
+$$
+I : \mathbb{R}^D \times \mathbb{R}^D \to [-1, 1],
+\quad
+I(u,v) = 1 - d_{\cos}(u,v)
+$$
 
 RBO is the truncated residual form to depth `k` with persistence `p`
 (default 0.9), same as the code used in the experiments.
