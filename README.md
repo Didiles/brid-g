@@ -1,53 +1,46 @@
 BRID-G — **Better Results with Influence Diversification for Graphs**
 for Graph Neural Networks:
 
-Repository for the plug-and-play implementation of BRID-G, a graph
-construction method that combines neighborhood ranking, influence
-dominance, reciprocity, and rank-biased overlap to better capture
-local structure before any Graph Neural Network.
+GCNs need two inputs: features and a graph. In citation networks the
+graph already exists. In images, it has to be built — usually from
+similarity (kNN / reciprocal kNN), which ignores diversity and can
+leave neighborhoods full of redundant neighbors.
 
-Build an undirected BRID-G graph from a feature matrix $X \in \mathbb{R}^{N \times D}$.
-No dataset loaders, no GNN training — only graph construction. Suitable
-as a preprocessing step before any graph neural network.
+This repo is the plug-and-play construction of that graph. You pass a
+feature matrix $X \in \mathbb{R}^{N \times D}$ and get an undirected
+BRID-G graph. No dataset loaders, no GNN training.
 
 ## 📝 Project Summary
 
-In image classification and related tasks, graphs are usually
-constructed from feature similarity (typically *k*-NN), where treating
-all neighbors equally may overlook important variations in relevance
-and produce redundant edges. Motivated by this research gap, we
-propose BRID-G (Better Results with Influence Diversification for Graphs).
+The usual recipe for image graphs is: extract embeddings, connect each
+sample to its $k$ nearest neighbors (sometimes only if the pair is
+reciprocal). That is similarity-only. Homogeneous neighborhoods limit
+what the GCN can propagate and tend to make oversmoothing worse.
 
-To achieve this, the method ranks the top-*k* nearest neighbors of each
-sample, then selects diverse candidates via influence dominance.
-An edge is materialized only if the pair passes reciprocity and a
-neighborhood-similarity gate (RBO or Jaccard). Triangulation connects
-pairs among the first accepted neighbors (still subject to the same
-filter), and a small set of mandatory top-ranked edges is added
-without filtering. The result is an undirected graph.
+BRID-G is an adaptation of BRID [Santos et al. 2013] — originally
+from similarity search with diversity — to GCN graph construction.
+The idea is to prune mutually redundant edges inside a ranked kNN
+neighborhood, instead of treating every neighbor the same.
 
-Canonical executed order (aligned with the reference implementation
-and thesis Cap. 4):
+In short, $(X, k, \text{hyperparameters}) \mapsto E$ in three stages:
 
-1. **Optional L2** — normalize features **only for ranking / influence**
-   (keep the original `X` for your classifier).
-2. **Rankings** — top-`k` nearest neighbours per node; the query itself
-   is excluded.
-3. **Influence selection** — for every neighbour used as an anchor,
-   keep diverse candidates via influence dominance; materialize an
-   edge only if the pair passes **reciprocity** and **RBO ≥ θ**
-   (when enabled).
-4. **Triangulation** — connect pairs among the first `t` accepted
-   neighbours (insertion order), still subject to the same filter.
-5. **Mandatory edges** — force the top-`m` ranked neighbours **without**
-   reciprocity / RBO.
-6. **Assemble** — undirected graph (`networkx.Graph` union of directed
-   stubs).
+1. **Influence filtering** — prune redundancies inside the top-$k$
+   (influence dominance).
+2. **Triangulation** — put some local cohesion back, among the first
+   $t$ accepted neighbors, still under the same filter.
+3. **Structural filtering** — keep an edge only if the pair is
+   reciprocal and the ranked lists agree (RBO or Jaccard, $\geq \theta$).
+   A small set of mandatory top-$m$ edges is added without that filter.
+
+Canonical order in this implementation (thesis Cap. 4):
 
 ```
 X  →  L2 (opt.)  →  top-k rankings
    →  influence + filter  →  triangulation  →  mandatory  →  G
 ```
+
+L2, when enabled, is only for ranking / influence. Keep the original
+`X` for the classifier.
 
 Influence:
 
@@ -55,83 +48,74 @@ Influence:
 - Cosine: $I(u,v) = 1 - d_{\cos}(u,v)$, diagonal 0
 
 RBO is the truncated residual form to depth `k` with persistence `p`
-(default 0.9), matching the reference code used in the experiments.
+(default 0.9), same as the code used in the experiments.
 
 ## 📂 Project Structure
 
-The code has been modularized to ensure clarity and maintainability,
-following the structure below:
-
 ```
 /
-├── bridg/                 # Package: pipeline and public API
-│   ├── builder.py         # Main entry point (build_brid_g)
-│   ├── config.py          # BridGConfig hyperparameters
-│   ├── ranking.py         # Distances, influence, kNN rankings
-│   ├── similarity.py      # RBO / Jaccard neighborhood similarity
+├── bridg/                 # Package
+│   ├── builder.py         # build_brid_g
+│   ├── config.py          # BridGConfig
+│   ├── ranking.py         # Distances, influence, kNN
+│   ├── similarity.py      # RBO / Jaccard
 │   ├── stages.py          # Influence, triangulation, mandatory
-│   └── io.py              # Undirected graph assembly
-├── examples/              # Minimal usage example
-├── tests/                 # pytest (+ parity vs. reference package)
+│   └── io.py              # Undirected graph
+├── examples/              # Minimal usage
+├── tests/                 # pytest (+ parity vs. reference, if available)
 ├── pyproject.toml
 ├── requirements.txt
-└── README.md              # This file
+└── README.md
 ```
 
 ## ⚙️ Installation and Setup
 
-Follow the steps below to set up the environment and run the project.
-
-**1. Clone the repository:**
+**1. Clone:**
 ```bash
 git clone https://github.com/Didiles/brid-g.git
 cd brid-g
 ```
 
-**2. Create and activate a virtual environment (recommended):**
+**2. Virtual environment (recommended):**
 ```bash
-# On Windows
+# Windows
 python -m venv venv
 .\venv\Scripts\activate
 
-# On macOS/Linux
+# macOS/Linux
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-**3. Install the dependencies:**
+**3. Install:**
 ```bash
 pip install -e .
 # or
 pip install -r requirements.txt
 ```
 
-Dependencies: `numpy`, `scikit-learn`, `networkx`.
+Depends on `numpy`, `scikit-learn`, `networkx`.
 
 ## How to Run
 
-Graph construction is controlled through `BridGConfig` and executed
-by `build_brid_g`. Paper defaults are `k=40`, `mandatory=5`,
-RBO θ=`0.1`, `triangulation=5`, Euclidean distance, and L2
-normalization for ranking only.
+Everything goes through `BridGConfig` and `build_brid_g`. Paper
+defaults: `k=40`, `mandatory=5`, RBO $\theta=0.1$, `triangulation=5`,
+Euclidean, L2 only for ranking.
 
-**Example:**
 ```python
 import numpy as np
 from bridg import build_brid_g, BridGConfig
 
-# Your embeddings / feature matrix (N, D)
+# Embeddings / feature matrix (N, D)
 features = np.random.randn(500, 128)
 
-# Paper defaults
 edge_index, G = build_brid_g(features)
-
-# edge_index: np.ndarray with shape (2, E), dtype int64
+# edge_index: (2, E), int64
 # G: networkx.Graph (undirected)
 print(G.number_of_nodes(), G.number_of_edges())
 ```
 
-Custom hyperparameters:
+If you need to change the knobs:
 
 ```python
 cfg = BridGConfig(
@@ -146,12 +130,11 @@ cfg = BridGConfig(
 )
 edge_index, G = build_brid_g(features, config=cfg)
 
-# NumPy only (no NetworkX object)
+# NumPy only
 edge_index = build_brid_g(features, config=cfg, return_networkx=False)
 ```
 
-After setting the desired parameters, you can also run the example
-from the project's root folder:
+Or just:
 
 ```bash
 python examples/basic_usage.py
@@ -161,9 +144,9 @@ python examples/basic_usage.py
 
 | Parameter | Default | Meaning |
 |-----------|---------|---------|
-| `k` | 40 | Neighbourhood size (self excluded) |
+| `k` | 40 | Neighborhood size (self excluded) |
 | `mandatory` | 5 | Top-`m` forced edges after triangulation (`None` to disable) |
-| `rbo_threshold` | 0.1 | Min neighbourhood similarity (`None` disables similarity gate) |
+| `rbo_threshold` | 0.1 | Min neighborhood similarity (`None` disables the gate) |
 | `triangulation` | 5 | Elite size for triangulation (`None` / `≤1` disables) |
 | `distance_metric` | `"euclidean"` | `"euclidean"` or `"cosine"` |
 | `normalize_l2` | `True` | L2 for ranking only |
@@ -178,9 +161,9 @@ pip install -e ".[dev]"
 pytest
 ```
 
-Parity tests compare undirected edge sets against
+Parity tests compare the undirected edge set against
 `brid_g.graphs.create_graph_brid_n_rnn` when that package is
-importable. They are skipped otherwise.
+importable. Otherwise they are skipped.
 
 ## 🎓 Author and Acknowledgements
 
