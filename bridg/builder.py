@@ -74,6 +74,10 @@ def build_brid_g(
     num_nodes = features.shape[0]
     if num_nodes < 2:
         raise ValueError("At least 2 samples are required.")
+    if not np.isfinite(features).all():
+        raise ValueError(
+            "features must contain only finite values (no NaN/Inf)"
+        )
 
     ranked = maybe_normalize_l2(features, config.normalize_l2)
     dist_matrix, influence = compute_distance_and_influence(

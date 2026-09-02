@@ -46,3 +46,6 @@ include = ["bridg*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "slow: N≈1000 graph construction; skip in the default fast suite",
+]

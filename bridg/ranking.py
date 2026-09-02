@@ -46,5 +46,8 @@ def knn_rankings(dist_matrix: np.ndarray, k: int) -> np.ndarray:
     if k < 1:
         raise ValueError("k must be >= 1")
     k_eff = min(k, n - 1)
-    # argsort places each node at column 0; take the next k_eff neighbours.
-    return np.argsort(dist_matrix, axis=1)[:, 1 : k_eff + 1]
+    # Self has distance 0, but duplicate rows can tie and move the query off
+    # column 0. Force self last so rank lists never include the query node.
+    dist = np.array(dist_matrix, copy=True)
+    np.fill_diagonal(dist, np.inf)
+    return np.argsort(dist, axis=1)[:, :k_eff]

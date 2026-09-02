@@ -183,7 +183,15 @@ python examples/basic_usage.py
 
 ```bash
 pip install -e ".[dev]"
-pytest
+
+# Fast suite (skips the N=1000 stress test)
+pytest -m "not slow"
+
+# Input-error reports (exception type + message)
+pytest -v tests/test_errors.py
+
+# Stress: N=1000 with paper defaults. -s prints the graph summary
+pytest -s -v -m slow --durations=10
 ```
 
 Parity tests compare the undirected edge set against

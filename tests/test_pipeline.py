@@ -38,10 +38,6 @@ class TestBuildBridG:
         assert isinstance(out, np.ndarray)
         assert out.shape[0] == 2
 
-    def test_invalid_features(self):
-        with pytest.raises(ValueError):
-            build_brid_g(np.array([1.0, 2.0]))
-
 
 class TestMandatoryUnfiltered:
     def test_mandatory_added_despite_failing_rbo(self):

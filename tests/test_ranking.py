@@ -51,6 +51,17 @@ class TestKNNRankings:
         for i in range(12):
             assert i not in knn[i]
 
+    def test_excludes_self_with_duplicate_rows(self):
+        features = np.array(
+            [[1.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
+            dtype=np.float64,
+        )
+        dist, _ = compute_distance_and_influence(features, "euclidean")
+        knn = knn_rankings(dist, k=2)
+        assert knn.shape == (3, 2)
+        for i in range(3):
+            assert i not in knn[i]
+
     def test_caps_at_n_minus_one(self, sample_features):
         dist, _ = compute_distance_and_influence(sample_features, "euclidean")
         knn = knn_rankings(dist, k=100)
