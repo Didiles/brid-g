@@ -23,7 +23,7 @@ def make_edge_filter(
     """Build the reciprocity ∧ similarity gate used at materialization time."""
 
     def check(n_a: int, n_b: int) -> bool:
-        if reciprocal and n_a not in rank_sets[n_b]:
+        if reciprocal and n_a not in rank_sets[n_b] and n_b not in rank_sets[n_a]:
             return False
         if rbo_threshold is not None:
             score = sim_fn(rank_lists[n_a], rank_lists[n_b], top_k)
