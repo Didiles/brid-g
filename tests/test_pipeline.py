@@ -38,6 +38,58 @@ class TestBuildBridG:
         assert isinstance(out, np.ndarray)
         assert out.shape[0] == 2
 
+    @pytest.mark.parametrize(
+        "metric", ["manhattan", "chebyshev", "minkowski", "correlation"]
+    )
+    def test_lp_and_correlation_have_no_self_loops(self, toy_features, metric):
+        cfg = BridGConfig(
+            k=5,
+            mandatory=1,
+            rbo_threshold=0.0,
+            triangulation=2,
+            normalize_l2=False,
+            reciprocal=False,
+            distance_metric=metric,
+        )
+        _, graph = build_brid_g(toy_features, config=cfg)
+        assert graph.number_of_nodes() == 20
+        assert nx.number_of_selfloops(graph) == 0
+
+    @pytest.mark.parametrize(
+        "metric", ["canberra", "mahalanobis", "seuclidean", "spearman"]
+    )
+    def test_signed_metrics_have_no_self_loops(self, toy_features, metric):
+        cfg = BridGConfig(
+            k=5,
+            mandatory=1,
+            rbo_threshold=0.0,
+            triangulation=2,
+            normalize_l2=False,
+            reciprocal=False,
+            distance_metric=metric,
+        )
+        _, graph = build_brid_g(toy_features, config=cfg)
+        assert graph.number_of_nodes() == 20
+        assert nx.number_of_selfloops(graph) == 0
+
+    @pytest.mark.parametrize(
+        "metric", ["braycurtis", "jensenshannon", "hellinger"]
+    )
+    def test_nonnegative_metrics_have_no_self_loops(self, toy_features, metric):
+        features = np.abs(toy_features)
+        cfg = BridGConfig(
+            k=5,
+            mandatory=1,
+            rbo_threshold=0.0,
+            triangulation=2,
+            normalize_l2=False,
+            reciprocal=False,
+            distance_metric=metric,
+        )
+        _, graph = build_brid_g(features, config=cfg)
+        assert graph.number_of_nodes() == 20
+        assert nx.number_of_selfloops(graph) == 0
+
 
 class TestMandatoryUnfiltered:
     def test_mandatory_added_despite_failing_rbo(self):
