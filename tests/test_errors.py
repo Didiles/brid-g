@@ -43,7 +43,64 @@ def test_invalid_k(k):
 
 def test_invalid_distance_metric():
     with pytest.raises(ValueError, match="distance_metric"):
-        BridGConfig(distance_metric="manhattan")  # type: ignore[arg-type]
+        BridGConfig(distance_metric="hamming")  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("minkowski_p", [0, -1, float("nan"), float("inf")])
+def test_invalid_minkowski_p(minkowski_p):
+    with pytest.raises(ValueError, match="minkowski_p"):
+        BridGConfig(minkowski_p=minkowski_p)
+
+
+def test_spearman_constant_row_rejected():
+    features = np.array(
+        [[1.0, 1.0, 1.0], [0.0, 1.0, 2.0], [1.0, 0.0, 1.0]],
+        dtype=np.float64,
+    )
+    cfg = BridGConfig(
+        k=2,
+        mandatory=None,
+        rbo_threshold=None,
+        triangulation=None,
+        normalize_l2=False,
+        distance_metric="spearman",
+    )
+    with pytest.raises(ValueError, match="spearman"):
+        build_brid_g(features, config=cfg)
+
+
+def test_mahalanobis_singular_covariance_rejected():
+    features = np.array(
+        [[1.0, 0.0], [2.0, 0.0], [3.0, 0.0]],
+        dtype=np.float64,
+    )
+    cfg = BridGConfig(
+        k=2,
+        mandatory=None,
+        rbo_threshold=None,
+        triangulation=None,
+        normalize_l2=False,
+        distance_metric="mahalanobis",
+    )
+    with pytest.raises(ValueError, match="mahalanobis"):
+        build_brid_g(features, config=cfg)
+
+
+def test_correlation_constant_row_rejected():
+    features = np.array(
+        [[1.0, 1.0, 1.0], [0.0, 1.0, 2.0], [1.0, 0.0, 1.0]],
+        dtype=np.float64,
+    )
+    cfg = BridGConfig(
+        k=2,
+        mandatory=None,
+        rbo_threshold=None,
+        triangulation=None,
+        normalize_l2=False,
+        distance_metric="correlation",
+    )
+    with pytest.raises(ValueError, match="correlation"):
+        build_brid_g(features, config=cfg)
 
 
 def test_invalid_similarity():

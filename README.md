@@ -43,19 +43,23 @@ L2, when enabled, is only for ranking / influence. Keep the original
 `X` for the classifier.
 
 Distance / influence (`distance_metric`). Diagonal of $I$ is always 0.
+Selection (dominance, triangulation, reciprocity / RBO) is the same for
+every metric: it compares influence values. Rankings still sort distance
+ascending.
 
-**Euclidean**
+**Lp family** — `euclidean` ($p=2$), `manhattan` ($p=1$), `minkowski`
+(order `minkowski_p`, default 3), and `chebyshev` ($p=\infty$).
 
 $$
-d_2 : \mathbb{R}^D \times \mathbb{R}^D \to [0, +\infty),
+d_p(u,v) = \lVert u - v \rVert_p,
 \quad
-d_2(u,v) = \lVert u - v \rVert_2
+I(u,v) = 1 / d_p(u,v)
 $$
 
 $$
-I : \mathbb{R}^D \times \mathbb{R}^D \to [0, +\infty),
+d_\infty(u,v) = \max_i |u_i - v_i|,
 \quad
-I(u,v) = 1 / d_2(u,v)
+I(u,v) = 1 / d_\infty(u,v)
 $$
 
 **Cosine** (scikit-learn: $d_{\cos} = 1 - \cos\theta$)
@@ -70,6 +74,70 @@ $$
 I : \mathbb{R}^D \times \mathbb{R}^D \to [-1, 1],
 \quad
 I(u,v) = 1 - d_{\cos}(u,v)
+$$
+
+**Correlation** (scikit-learn: $d_{\mathrm{corr}} = 1 - \mathrm{corr}$).
+Rankings use that distance. Influence is the Pearson correlation itself.
+
+$$
+I(u,v) = \mathrm{corr}(u,v)
+$$
+
+A constant feature row makes correlation undefined and raises `ValueError`.
+
+For every dissimilarity below, influence is `1 / d` and the diagonal of `I`
+is 0. Because `1/d` decreases as `d` grows, the dominance test
+`I(a, c) ≥ I(a, q)` is the same comparison as `d(a, c) ≤ d(a, q)`.
+
+**Canberra**
+
+$$
+d_{\mathrm{Can}}(u,v) = \sum_i \frac{|u_i - v_i|}{|u_i| + |v_i|}
+$$
+
+A term with `u_i = v_i = 0` is 0.
+
+**Bray-Curtis** (non-negative features)
+
+$$
+d_{\mathrm{BC}}(u,v) = \frac{\sum_i |u_i - v_i|}{\sum_i |u_i + v_i|}
+$$
+
+A negative entry, or a pair whose denominator is 0, raises `ValueError`.
+
+**Mahalanobis** — `Σ` is the sample covariance of the ranking matrix
+(`ddof = 1`). A singular `Σ` raises `ValueError`.
+
+$$
+d_M(u,v) = \sqrt{(u-v)^{\mathsf T} \Sigma^{-1} (u-v)}
+$$
+
+**Standardized Euclidean** — `V_i` is the sample variance of feature `i`.
+A zero variance raises `ValueError`.
+
+$$
+d_{\mathrm{SE}}(u,v) = \sqrt{\sum_i (u_i - v_i)^2 / V_i}
+$$
+
+**Jensen-Shannon** — each row is turned into a probability `p` (reject
+negatives and rows that sum to 0). `m = (p+q)/2`.
+
+$$
+d_{\mathrm{JS}}(p,q) = \sqrt{\frac{\mathrm{KL}(p \,\|\, m) + \mathrm{KL}(q \,\|\, m)}{2}}
+$$
+
+**Hellinger** — same probabilities, range `[0, 1]`.
+
+$$
+d_H(p,q) = \frac{1}{\sqrt{2}} \,\lVert \sqrt{p} - \sqrt{q} \rVert_2
+$$
+
+**Spearman** — Pearson correlation of the average ranks of each row.
+Rankings use `d = 1 - ρ`. Influence is `ρ` itself. A constant row
+raises `ValueError`.
+
+$$
+I(u,v) = \mathrm{corr}(\mathrm{rank}(u), \mathrm{rank}(v))
 $$
 
 RBO is the truncated residual form to depth `k` with persistence `p`
@@ -119,7 +187,7 @@ pip install -e .
 pip install -r requirements.txt
 ```
 
-Depends on `numpy`, `scikit-learn`, `networkx`.
+Depends on `numpy`, `scipy`, `scikit-learn`, `networkx`.
 
 ## How to Run
 
@@ -148,7 +216,7 @@ cfg = BridGConfig(
     mandatory=5,
     rbo_threshold=0.1,
     triangulation=5,
-    distance_metric="euclidean",  # or "cosine"
+    distance_metric="euclidean",  # see the parameter table
     normalize_l2=True,
     reciprocal=True,
     similarity="rbo",             # or "jaccard"
@@ -173,7 +241,8 @@ python examples/basic_usage.py
 | `mandatory` | 5 | Top-`m` forced edges after triangulation (`None` to disable) |
 | `rbo_threshold` | 0.1 | Min neighborhood similarity (`None` disables the gate) |
 | `triangulation` | 5 | Elite size for triangulation (`None` / `≤1` disables) |
-| `distance_metric` | `"euclidean"` | `"euclidean"` or `"cosine"` |
+| `distance_metric` | `"euclidean"` | `euclidean`, `manhattan`, `chebyshev`, `minkowski`, `cosine`, `correlation`, `canberra`, `braycurtis`, `mahalanobis`, `seuclidean`, `jensenshannon`, `hellinger`, `spearman` |
+| `minkowski_p` | `3` | Order $p$ when `distance_metric="minkowski"` (finite, $\geq 1$) |
 | `normalize_l2` | `True` | L2 for ranking only |
 | `reciprocal` | `True` | Require mutual top-`k` membership |
 | `similarity` | `"rbo"` | `"rbo"` or `"jaccard"` |

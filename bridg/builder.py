@@ -81,7 +81,9 @@ def build_brid_g(
 
     ranked = maybe_normalize_l2(features, config.normalize_l2)
     dist_matrix, influence = compute_distance_and_influence(
-        ranked, metric=config.distance_metric
+        ranked,
+        metric=config.distance_metric,
+        minkowski_p=config.minkowski_p,
     )
     knn = knn_rankings(dist_matrix, config.k)
 
