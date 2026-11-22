@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Sequence, Tuple, Union
+from collections.abc import Sequence
 
 import networkx as nx
 import numpy as np
@@ -12,7 +12,13 @@ def edges_to_numpy(
     edge_list: Sequence[Sequence[int]],
     num_nodes: int,
 ) -> np.ndarray:
-    """Convert a list of ``[u, v]`` pairs to a ``(2, E)`` int64 array."""
+    """Convert a list of ``[u, v]`` pairs to a ``(2, E)`` int64 array.
+
+    The result is the raw directed list. ``(u, v)`` and ``(v, u)`` can both
+    appear, and the same ordered pair can repeat. Nothing is deduplicated
+    or sorted. The undirected set ``{frozenset((u, v))}`` matches the edges
+    of the NetworkX graph built from the same list.
+    """
     if not edge_list:
         return np.empty((2, 0), dtype=np.int64)
 
@@ -43,8 +49,13 @@ def assemble_graph(
     num_nodes: int,
     *,
     return_networkx: bool = True,
-) -> Union[np.ndarray, Tuple[np.ndarray, nx.Graph]]:
-    """Validate edges and return NumPy ``edge_index`` plus optional NetworkX."""
+) -> np.ndarray | tuple[np.ndarray, nx.Graph]:
+    """Validate edges and return NumPy ``edge_index`` plus optional NetworkX.
+
+    ``edge_index`` is the raw directed list from ``edges_to_numpy``: both
+    directions may be present, and duplicates are kept. The undirected set
+    of those pairs equals ``G.edges`` when the NetworkX graph is returned.
+    """
     edge_index = edges_to_numpy(edge_list, num_nodes)
     if return_networkx:
         return edge_index, edges_to_networkx(edge_list, num_nodes)

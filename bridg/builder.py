@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple, Union
-
 import networkx as nx
 import numpy as np
 
@@ -26,10 +24,10 @@ from .stages import (
 
 def build_brid_g(
     features: np.ndarray,
-    config: Optional[BridGConfig] = None,
+    config: BridGConfig | None = None,
     *,
     return_networkx: bool = True,
-) -> Union[np.ndarray, Tuple[np.ndarray, nx.Graph]]:
+) -> np.ndarray | tuple[np.ndarray, nx.Graph]:
     """Build an undirected BRID-G graph from a feature matrix.
 
     Pipeline (canonical executed order):
@@ -54,7 +52,9 @@ def build_brid_g(
     Returns
     -------
     edge_index :
-        ``np.ndarray`` of shape ``(2, E)`` and dtype ``int64``.
+        ``np.ndarray`` of shape ``(2, E)`` and dtype ``int64``. Raw directed
+        list: ``(u, v)`` and ``(v, u)`` may both appear, and duplicates are
+        kept. The undirected set ``{frozenset((u, v))}`` equals ``G.edges``.
     G :
         Undirected NetworkX graph (only if ``return_networkx`` is True).
 

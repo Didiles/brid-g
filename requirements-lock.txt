@@ -1,0 +1,24 @@
+# Method and dev dependencies pinned from the project .venv.
+# Python 3.11.9. requirements.txt keeps lower bounds for package installs.
+
+ast_serialize==0.13.1
+cloudpickle==3.1.2
+colorama==0.4.6
+iniconfig==2.3.1
+joblib==1.6.0
+librt==0.17.0
+mypy==2.4.1
+mypy_extensions==1.2.0
+narwhals==2.28.0
+networkx==3.6.1
+numpy==2.4.6
+packaging==26.3
+pathspec==1.1.1
+pluggy==1.7.0
+Pygments==2.21.0
+pytest==9.2.0
+ruff==0.17.6
+scikit-learn==1.9.1
+scipy==1.17.1
+threadpoolctl==3.7.0
+typing_extensions==4.16.0

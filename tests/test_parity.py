@@ -1,4 +1,12 @@
-"""Parity checks against the reference ``brid_g.graphs.create_graph_brid_n_rnn``."""
+"""Parity checks against ``brid_g.graphs.create_graph_brid_n_rnn``.
+
+Agreement is expected only at tag ``laguna-bridg``, the last revision
+with the previous constructor semantics: reciprocity held when at least
+one endpoint listed the other, and the first candidate of each dominance
+pass was kept without a bilateral test. Later revisions of this package
+are not expected to match that reference. The module is skipped when
+``brid_g`` is not installed.
+"""
 
 from __future__ import annotations
 

@@ -1,0 +1,22 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.6
+    hooks:
+      - id: ruff-check
+        files: ^(bridg|tests)/
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v2.4.1
+    hooks:
+      - id: mypy
+        files: ^(bridg|tests)/
+        args: ["--config-file=pyproject.toml"]
+        additional_dependencies:
+          - numpy==2.4.6
+          - scipy==1.17.1
+          - scikit-learn==1.9.1
+          - networkx==3.6.1
+          - joblib==1.6.0
+          - threadpoolctl==3.7.0
+          - narwhals==2.28.0
+          - cloudpickle==3.1.2

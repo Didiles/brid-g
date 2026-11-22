@@ -1,7 +1,7 @@
 """Input-error reports: exception type and message."""
 
-import numpy as np
 import networkx as nx
+import numpy as np
 import pytest
 
 from bridg import BridGConfig, build_brid_g
@@ -35,10 +35,54 @@ def test_inf_rejected():
         build_brid_g(features)
 
 
-@pytest.mark.parametrize("k", [0, -1])
+@pytest.mark.parametrize("k", [0, -1, True])
 def test_invalid_k(k):
     with pytest.raises(ValueError, match="k must be"):
         BridGConfig(k=k)
+
+
+@pytest.mark.parametrize("mandatory", [-1, True, 1.5])
+def test_invalid_mandatory(mandatory):
+    with pytest.raises(ValueError, match="mandatory"):
+        BridGConfig(mandatory=mandatory)
+
+
+@pytest.mark.parametrize("triangulation", [-1, True])
+def test_invalid_triangulation(triangulation):
+    with pytest.raises(ValueError, match="triangulation"):
+        BridGConfig(triangulation=triangulation)
+
+
+@pytest.mark.parametrize(
+    "rbo_threshold",
+    [1.5, -0.1, float("nan"), float("inf"), True],
+)
+def test_invalid_rbo_threshold(rbo_threshold):
+    with pytest.raises(ValueError, match="rbo_threshold"):
+        BridGConfig(rbo_threshold=rbo_threshold)
+
+
+def test_boundaries_that_still_disable_stages():
+    disabled = BridGConfig(mandatory=0, triangulation=0, rbo_threshold=0.0)
+    assert disabled.mandatory == 0
+    assert disabled.triangulation == 0
+    assert disabled.rbo_threshold == 0.0
+    closed = BridGConfig(triangulation=1, rbo_threshold=1.0)
+    assert closed.triangulation == 1
+    assert closed.rbo_threshold == 1.0
+    assert BridGConfig(rbo_threshold=None).rbo_threshold is None
+
+
+@pytest.mark.parametrize("normalize_l2", [1, 0, "yes"])
+def test_invalid_normalize_l2(normalize_l2):
+    with pytest.raises(ValueError, match="normalize_l2"):
+        BridGConfig(normalize_l2=normalize_l2)
+
+
+@pytest.mark.parametrize("reciprocal", [1, 0, "yes"])
+def test_invalid_reciprocal(reciprocal):
+    with pytest.raises(ValueError, match="reciprocal"):
+        BridGConfig(reciprocal=reciprocal)
 
 
 def test_invalid_distance_metric():
@@ -108,7 +152,7 @@ def test_invalid_similarity():
         BridGConfig(similarity="cosine")  # type: ignore[arg-type]
 
 
-@pytest.mark.parametrize("rbo_p", [0.0, 1.0, -0.1])
+@pytest.mark.parametrize("rbo_p", [0.0, 1.0, -0.1, True])
 def test_invalid_rbo_p(rbo_p):
     with pytest.raises(ValueError, match="rbo_p"):
         BridGConfig(rbo_p=rbo_p)
