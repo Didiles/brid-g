@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Callable, Dict, Sequence, Set
+from collections.abc import Sequence
+from typing import Callable
 
 RankList = Sequence[int]
-SetSimFn = Callable[[RankList, Set[int], int], float]
+SetSimFn = Callable[[RankList, set[int], int], float]
 
 
 def compute_jaccard(x: RankList, y: RankList, top_k: int) -> float:
@@ -32,9 +33,9 @@ def compute_rbo(
 
     with no infinite-list extrapolation beyond ``k``.
     """
-    x_leftover: set = set()
-    y_leftover: set = set()
-    stored: set = set()
+    x_leftover: set[int] = set()
+    y_leftover: set[int] = set()
+    stored: set[int] = set()
     acum_inter = 0
     score = 0.0
     limit = min(len(x), len(y), top_k)
@@ -66,7 +67,7 @@ def compute_rbo(
     return (1.0 - p) * score
 
 
-def jaccard_against_set(candidate: RankList, reference: Set[int], top_k: int) -> float:
+def jaccard_against_set(candidate: RankList, reference: set[int], top_k: int) -> float:
     """Jaccard of the candidate prefix against the full reference set.
 
     The reference is not truncated. A growing union of anchor neighborhoods
@@ -81,7 +82,7 @@ def jaccard_against_set(candidate: RankList, reference: Set[int], top_k: int) ->
 
 def rbo_against_set(
     candidate: RankList,
-    reference: Set[int],
+    reference: set[int],
     top_k: int,
     p: float = 0.9,
 ) -> float:
@@ -94,7 +95,7 @@ def rbo_against_set(
     in the candidate.
     """
     limit = min(len(candidate), top_k)
-    seen: Set[int] = set()
+    seen: set[int] = set()
     overlap = 0
     score = 0.0
     for i in range(limit):
@@ -107,7 +108,7 @@ def rbo_against_set(
     return (1.0 - p) * score
 
 
-SIMILARITY_FUNCTIONS: Dict[str, Callable[..., float]] = {
+SIMILARITY_FUNCTIONS: dict[str, Callable[..., float]] = {
     "jaccard": compute_jaccard,
     "rbo": compute_rbo,
 }
@@ -139,7 +140,7 @@ def get_set_similarity_fn(
     """
     if name == "rbo":
 
-        def _rbo(candidate: RankList, reference: Set[int], top_k: int) -> float:
+        def _rbo(candidate: RankList, reference: set[int], top_k: int) -> float:
             return rbo_against_set(candidate, reference, top_k, p=rbo_p)
 
         return _rbo

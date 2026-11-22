@@ -19,7 +19,16 @@ class _Draws:
         return next(self._values)
 
 
-def _select(neighbors, rank_lists, *, mode, probability=0.5, rng=None, top_k=3, query=0):
+def _select(
+    neighbors,
+    rank_lists,
+    *,
+    mode,
+    probability=0.5,
+    rng=None,
+    top_k=3,
+    query=0,
+):
     if rng is None:
         rng = np.random.default_rng(0)
     return select_anchors(

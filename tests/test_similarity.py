@@ -1,6 +1,5 @@
 """Tests for RBO and Jaccard."""
 
-import numpy as np
 import pytest
 
 from bridg.similarity import (
@@ -68,7 +67,9 @@ class TestRBO:
 class TestSimilarityAgainstSet:
     def test_jaccard_keeps_the_full_reference(self):
         # Intersection is {0}. The four extra reference ids enlarge the union.
-        assert jaccard_against_set([0, 9], {0, 1, 2, 3, 4}, 2) == pytest.approx(1.0 / 6.0)
+        assert jaccard_against_set([0, 9], {0, 1, 2, 3, 4}, 2) == pytest.approx(
+            1.0 / 6.0
+        )
 
     def test_rbo_counts_reference_members_at_any_depth(self):
         candidate = [0, 1, 2]

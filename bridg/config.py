@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Literal
 
 AnchorSelection = Literal["all", "random", "probabilistic", "incremental"]
 _ANCHOR_SELECTIONS = ("all", "random", "probabilistic", "incremental")
@@ -110,9 +110,9 @@ class BridGConfig:
     """
 
     k: int = 40
-    mandatory: Optional[int] = 5
-    rbo_threshold: Optional[float] = 0.1
-    triangulation: Optional[int] = 5
+    mandatory: int | None = 5
+    rbo_threshold: float | None = 0.1
+    triangulation: int | None = 5
     distance_metric: DistanceMetric = "euclidean"
     minkowski_p: float = 3.0
     normalize_l2: bool = True

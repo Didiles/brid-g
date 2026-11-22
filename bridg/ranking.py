@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Tuple
-
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
 from scipy.stats import rankdata
@@ -83,7 +81,7 @@ def _distance_matrix(
         with np.errstate(divide="ignore", invalid="ignore"):
             return pairwise_distances(ranks, metric="correlation")
 
-    kwargs = {}
+    kwargs: dict[str, float | np.ndarray] = {}
     if metric == "minkowski":
         kwargs["p"] = minkowski_p
     elif metric == "mahalanobis":
@@ -106,7 +104,7 @@ def compute_distance_and_influence(
     features: np.ndarray,
     metric: str = "euclidean",
     minkowski_p: float = 3.0,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Return ``(dist_matrix, influence_matrix)`` of shape ``(N, N)``.
 
     Dissimilarities (Lp family, ``canberra``, ``braycurtis``,

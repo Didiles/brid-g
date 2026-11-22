@@ -1,7 +1,7 @@
 """Input-error reports: exception type and message."""
 
-import numpy as np
 import networkx as nx
+import numpy as np
 import pytest
 
 from bridg import BridGConfig, build_brid_g

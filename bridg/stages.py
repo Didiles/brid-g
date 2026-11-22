@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Callable, List, Optional, Protocol, Sequence, Set, Tuple
+from collections.abc import Sequence
+from typing import Callable, Protocol
 
 import numpy as np
 
 RankLists = Sequence[Sequence[int]]
-RankSets = Sequence[Set[int]]
+RankSets = Sequence[set[int]]
 EdgeFilter = Callable[[int, int], bool]
 ListSimFn = Callable[[Sequence[int], Sequence[int], int], float]
-SetSimFn = Callable[[Sequence[int], Set[int], int], float]
+SetSimFn = Callable[[Sequence[int], set[int], int], float]
 _ANCHOR_MODES = ("all", "random", "probabilistic", "incremental")
 
 
@@ -26,7 +27,7 @@ def make_edge_filter(
     top_k: int,
     *,
     reciprocal: bool,
-    rbo_threshold: Optional[float],
+    rbo_threshold: float | None,
     sim_fn: Callable[[Sequence[int], Sequence[int], int], float],
 ) -> EdgeFilter:
     """Build the mutual-reciprocity and similarity gate for edge materialization.
@@ -70,7 +71,7 @@ def select_anchors(
     set_sim_fn: SetSimFn,
     probability: float,
     rng: RandomDraw,
-) -> List[int]:
+) -> list[int]:
     """Choose the dominance anchors for one query, in rank order.
 
     ``"all"`` returns every neighbor. ``"random"`` keeps each neighbor
@@ -92,8 +93,8 @@ def select_anchors(
         return [n for n in neighbors if rng.random() < probability]
 
     query_list = rank_lists[query]
+    chosen: list[int] = []
     if mode == "probabilistic":
-        chosen: List[int] = []
         for neighbor in neighbors:
             score = sim_fn(rank_lists[neighbor], query_list, top_k)
             if _keep_with_probability(score, rng):
@@ -101,7 +102,6 @@ def select_anchors(
         return chosen
 
     reference = set(query_list[:top_k])
-    chosen = []
     for neighbor in neighbors:
         score = set_sim_fn(rank_lists[neighbor], reference, top_k)
         if _keep_with_probability(score, rng):
@@ -115,8 +115,8 @@ def influence_select(
     neighbors: Sequence[int],
     influence: np.ndarray,
     edge_filter: EdgeFilter,
-    anchors: Optional[Sequence[int]] = None,
-) -> Tuple[List[int], Set[int], List[List[int]]]:
+    anchors: Sequence[int] | None = None,
+) -> tuple[list[int], set[int], list[list[int]]]:
     """Influence / dominance selection for one query node.
 
     For every neighbor used as an **anchor**, every candidate ``!= anchor``
@@ -142,13 +142,13 @@ def influence_select(
     edges :
         Directed edge list ``[query, neighbor]`` for accepted neighbors.
     """
-    accepted: List[int] = []
-    accepted_set: Set[int] = set()
-    edges: List[List[int]] = []
+    accepted: list[int] = []
+    accepted_set: set[int] = set()
+    edges: list[list[int]] = []
     anchor_list = neighbors if anchors is None else anchors
 
     for anchor in anchor_list:
-        local: List[int] = []
+        local: list[int] = []
 
         for candidate in neighbors:
             if candidate == anchor:
@@ -182,9 +182,9 @@ def influence_select(
 
 def triangulate(
     accepted: Sequence[int],
-    triangulation_n: Optional[int],
+    triangulation_n: int | None,
     edge_filter: EdgeFilter,
-) -> List[List[int]]:
+) -> list[list[int]]:
     """Connect pairs among the first ``t`` accepted neighbors (insertion order).
 
     Pair edges are still subject to ``edge_filter``. Disabled when ``t`` is
@@ -194,7 +194,7 @@ def triangulate(
         return []
 
     elite = list(accepted[:triangulation_n])
-    edges: List[List[int]] = []
+    edges: list[list[int]] = []
     for i in range(len(elite)):
         for j in range(i + 1, len(elite)):
             n_a, n_b = elite[i], elite[j]
@@ -206,9 +206,9 @@ def triangulate(
 def add_mandatory(
     query: int,
     neighbors: Sequence[int],
-    mandatory: Optional[int],
-    accepted_set: Set[int],
-) -> Tuple[List[int], List[List[int]]]:
+    mandatory: int | None,
+    accepted_set: set[int],
+) -> tuple[list[int], list[list[int]]]:
     """Force-add the top-``m`` ranked neighbors with **no** edge filter.
 
     Runs after triangulation. Skips neighbors already in ``accepted_set``.
@@ -218,8 +218,8 @@ def add_mandatory(
         return [], []
 
     limit = min(mandatory, len(neighbors))
-    new_ids: List[int] = []
-    edges: List[List[int]] = []
+    new_ids: list[int] = []
+    edges: list[list[int]] = []
     for i in range(limit):
         neighbor = int(neighbors[i])
         if neighbor == query:

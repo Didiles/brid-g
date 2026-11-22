@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Sequence, Tuple, Union
+from collections.abc import Sequence
 
 import networkx as nx
 import numpy as np
@@ -49,7 +49,7 @@ def assemble_graph(
     num_nodes: int,
     *,
     return_networkx: bool = True,
-) -> Union[np.ndarray, Tuple[np.ndarray, nx.Graph]]:
+) -> np.ndarray | tuple[np.ndarray, nx.Graph]:
     """Validate edges and return NumPy ``edge_index`` plus optional NetworkX.
 
     ``edge_index`` is the raw directed list from ``edges_to_numpy``: both

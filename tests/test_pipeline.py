@@ -1,7 +1,7 @@
 """Tests for pipeline stage order and graph properties."""
 
-import numpy as np
 import networkx as nx
+import numpy as np
 import pytest
 
 from bridg import BridGConfig, build_brid_g
@@ -151,7 +151,9 @@ class TestTriangulation:
 class TestAddMandatoryHelper:
     def test_skips_already_accepted(self):
         accepted = {1, 2}
-        new_ids, edges = add_mandatory(0, [1, 2, 3, 4], mandatory=3, accepted_set=accepted)
+        new_ids, edges = add_mandatory(
+            0, [1, 2, 3, 4], mandatory=3, accepted_set=accepted
+        )
         assert new_ids == [3]
         assert edges == [[0, 3]]
         assert 3 in accepted
@@ -159,7 +161,11 @@ class TestAddMandatoryHelper:
 
 class TestMutualReciprocity:
     def test_reciprocal_filter_cuts_unilateral_influence_edges(self):
-        """Unilateral influence edge (c in top-k(q), q not in top-k(c)) is cut iff reciprocal=True."""
+        """Unilateral influence edge is cut iff reciprocal=True.
+
+        The edge is unilateral when ``c`` is in the top-k of ``q`` and ``q``
+        is not in the top-k of ``c``.
+        """
         # 1D cloud: q=0 has top-2 [1, 2], while c=1 has top-2 [3, 4] (excludes 0)
         # and node 2 has top-2 [0, 1] (mutual with 0). Nodes 1 and 2 lie on
         # opposite sides of 0 so neither bilaterally dominates the other w.r.t. 0.
@@ -180,8 +186,12 @@ class TestMutualReciprocity:
             normalize_l2=False,
             distance_metric="euclidean",
         )
-        _, g_unilateral = build_brid_g(features, config=BridGConfig(**base, reciprocal=False))
-        _, g_reciprocal = build_brid_g(features, config=BridGConfig(**base, reciprocal=True))
+        _, g_unilateral = build_brid_g(
+            features, config=BridGConfig(**base, reciprocal=False)
+        )
+        _, g_reciprocal = build_brid_g(
+            features, config=BridGConfig(**base, reciprocal=True)
+        )
 
         assert g_unilateral.has_edge(q, c)
         assert g_unilateral.has_edge(q, mutual)
@@ -191,7 +201,7 @@ class TestMutualReciprocity:
 
 class TestInfluenceDominance:
     def test_first_candidate_tested_against_anchor_dominance(self):
-        """neighbors[0] != anchor is tested for bilateral dominance against anchor (no auto-seed)."""
+        """The first candidate is tested against the anchor, with no auto-seed."""
         # 1D cloud: query=0 -> neighbors=[1, 2, 3] with d(0,1)=3, d(0,2)=4, d(0,3)=5.
         # Since d(1,2)=1 <= min(d(0,1), d(0,2)), anchor=2 bilaterally dominates
         # neighbors[0]=1 w.r.t. query=0, whereas survivor=3 at -5.0 is not dominated.

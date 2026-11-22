@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple, Union
-
 import networkx as nx
 import numpy as np
 
@@ -26,10 +24,10 @@ from .stages import (
 
 def build_brid_g(
     features: np.ndarray,
-    config: Optional[BridGConfig] = None,
+    config: BridGConfig | None = None,
     *,
     return_networkx: bool = True,
-) -> Union[np.ndarray, Tuple[np.ndarray, nx.Graph]]:
+) -> np.ndarray | tuple[np.ndarray, nx.Graph]:
     """Build an undirected BRID-G graph from a feature matrix.
 
     Pipeline (canonical executed order):
