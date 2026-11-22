@@ -38,6 +38,15 @@ class TestBuildBridG:
         assert isinstance(out, np.ndarray)
         assert out.shape[0] == 2
 
+    def test_default_config_is_deterministic_and_matches_networkx(self):
+        rng = np.random.RandomState(0)
+        features = rng.randn(200, 16).astype(np.float64)
+        first, graph = build_brid_g(features, config=BridGConfig())
+        second, _graph = build_brid_g(features, config=BridGConfig())
+        assert np.array_equal(first, second)
+        undirected = {frozenset((int(u), int(v))) for u, v in first.T}
+        assert undirected == {frozenset(edge) for edge in graph.edges()}
+
     @pytest.mark.parametrize(
         "metric", ["manhattan", "chebyshev", "minkowski", "correlation"]
     )

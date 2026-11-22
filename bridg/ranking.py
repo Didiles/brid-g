@@ -137,6 +137,8 @@ def knn_rankings(dist_matrix: np.ndarray, k: int) -> np.ndarray:
     """Return nearest-neighbour indices of shape ``(N, k_eff)``, self excluded.
 
     ``k_eff = min(k, N - 1)``. Rank lists never include the query node.
+    Ties keep the smaller index: ``argsort`` is stable, so equal distances
+    stay in column order ``0 .. N - 1`` after the diagonal is set to ``inf``.
     """
     n = dist_matrix.shape[0]
     if n < 2:
@@ -148,4 +150,4 @@ def knn_rankings(dist_matrix: np.ndarray, k: int) -> np.ndarray:
     # column 0. Force self last so rank lists never include the query node.
     dist = np.array(dist_matrix, copy=True)
     np.fill_diagonal(dist, np.inf)
-    return np.argsort(dist, axis=1)[:, :k_eff]
+    return np.argsort(dist, axis=1, kind="stable")[:, :k_eff]

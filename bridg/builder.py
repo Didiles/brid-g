@@ -54,7 +54,9 @@ def build_brid_g(
     Returns
     -------
     edge_index :
-        ``np.ndarray`` of shape ``(2, E)`` and dtype ``int64``.
+        ``np.ndarray`` of shape ``(2, E)`` and dtype ``int64``. Raw directed
+        list: ``(u, v)`` and ``(v, u)`` may both appear, and duplicates are
+        kept. The undirected set ``{frozenset((u, v))}`` equals ``G.edges``.
     G :
         Undirected NetworkX graph (only if ``return_networkx`` is True).
 

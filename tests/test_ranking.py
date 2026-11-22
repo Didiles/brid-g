@@ -271,3 +271,14 @@ class TestKNNRankings:
         dist = np.array([[0.0]])
         with pytest.raises(ValueError):
             knn_rankings(dist, k=1)
+
+    def test_ties_break_toward_smaller_index(self):
+        # Row 0, after the diagonal is forced to inf, is
+        # [inf, 2, 2, 1, 1, 0, 0, 0]. On NumPy 2.4.6 the default argsort
+        # returns [6, 7, 5, ...] for that row; stable order is [5, 6, 7, ...].
+        dist = np.zeros((8, 8), dtype=np.float64)
+        dist[0] = [0.0, 2.0, 2.0, 1.0, 1.0, 0.0, 0.0, 0.0]
+        for i in range(1, 8):
+            dist[i] = np.abs(np.arange(8) - i)
+        knn = knn_rankings(dist, k=3)
+        assert list(knn[0]) == [5, 6, 7]
