@@ -7,7 +7,7 @@ import pytest
 from bridg import BridGConfig, build_brid_g
 from bridg.ranking import compute_distance_and_influence, knn_rankings
 from bridg.similarity import compute_rbo
-from bridg.stages import add_mandatory
+from bridg.stages import add_mandatory, influence_select
 
 
 @pytest.fixture()
@@ -146,3 +146,68 @@ class TestAddMandatoryHelper:
         assert new_ids == [3]
         assert edges == [[0, 3]]
         assert 3 in accepted
+
+
+class TestMutualReciprocity:
+    def test_reciprocal_filter_cuts_unilateral_influence_edges(self):
+        """Unilateral influence edge (c in top-k(q), q not in top-k(c)) is cut iff reciprocal=True."""
+        # 1D cloud: q=0 has top-2 [1, 2], while c=1 has top-2 [3, 4] (excludes 0)
+        # and node 2 has top-2 [0, 1] (mutual with 0). Nodes 1 and 2 lie on
+        # opposite sides of 0 so neither bilaterally dominates the other w.r.t. 0.
+        features = np.array([[0.0], [3.0], [-4.0], [4.2], [4.5]], dtype=np.float64)
+        dist, _ = compute_distance_and_influence(features, "euclidean")
+        knn = knn_rankings(dist, k=2)
+        rank_sets = [set(knn[i].tolist()) for i in range(features.shape[0])]
+
+        q, c, mutual = 0, 1, 2
+        assert c in rank_sets[q] and q not in rank_sets[c]
+        assert mutual in rank_sets[q] and q in rank_sets[mutual]
+
+        base = dict(
+            k=2,
+            mandatory=None,
+            rbo_threshold=None,
+            triangulation=None,
+            normalize_l2=False,
+            distance_metric="euclidean",
+        )
+        _, g_unilateral = build_brid_g(features, config=BridGConfig(**base, reciprocal=False))
+        _, g_reciprocal = build_brid_g(features, config=BridGConfig(**base, reciprocal=True))
+
+        assert g_unilateral.has_edge(q, c)
+        assert g_unilateral.has_edge(q, mutual)
+        assert not g_reciprocal.has_edge(q, c)
+        assert g_reciprocal.has_edge(q, mutual)
+
+
+class TestInfluenceDominance:
+    def test_first_candidate_tested_against_anchor_dominance(self):
+        """neighbors[0] != anchor is tested for bilateral dominance against anchor (no auto-seed)."""
+        # 1D cloud: query=0 -> neighbors=[1, 2, 3] with d(0,1)=3, d(0,2)=4, d(0,3)=5.
+        # Since d(1,2)=1 <= min(d(0,1), d(0,2)), anchor=2 bilaterally dominates
+        # neighbors[0]=1 w.r.t. query=0, whereas survivor=3 at -5.0 is not dominated.
+        features = np.array([[0.0], [3.0], [4.0], [-5.0]], dtype=np.float64)
+        dist, infl = compute_distance_and_influence(features, "euclidean")
+        neighbors = knn_rankings(dist, k=3)[0].tolist()
+
+        query, first_cand, anchor, survivor = 0, 1, 2, 3
+        assert neighbors == [first_cand, anchor, survivor]
+        assert neighbors[0] != anchor
+        assert infl[anchor, first_cand] >= infl[anchor, query]
+        assert infl[first_cand, anchor] >= infl[first_cand, query]
+
+        accepted, accepted_set, edges = influence_select(
+            query, neighbors, infl, lambda _a, _b: True, anchors=[anchor]
+        )
+        assert first_cand not in accepted_set
+        assert accepted == [survivor]
+        assert edges == [[query, survivor]]
+
+        # On the 3-node sub-cloud {0, 1, 2}, both all-anchor passes reject each other.
+        neighbors_pair = knn_rankings(dist[:3, :3], k=2)[0].tolist()
+        accepted_all, _, edges_all = influence_select(
+            query, neighbors_pair, infl[:3, :3], lambda _a, _b: True
+        )
+        assert accepted_all == []
+        assert edges_all == []
+

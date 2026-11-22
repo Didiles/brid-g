@@ -29,10 +29,16 @@ def make_edge_filter(
     rbo_threshold: Optional[float],
     sim_fn: Callable[[Sequence[int], Sequence[int], int], float],
 ) -> EdgeFilter:
-    """Build the reciprocity ∧ similarity gate used at materialization time."""
+    """Build the mutual-reciprocity and similarity gate for edge materialization.
+
+    When ``reciprocal`` is True, both endpoints must belong to each other's
+    top-``k`` neighbor set (``n_a in rank_sets[n_b] and n_b in rank_sets[n_a]``).
+    When ``rbo_threshold`` is not ``None``, ``sim_fn(rank_lists[n_a],
+    rank_lists[n_b], top_k) >= rbo_threshold`` is also required.
+    """
 
     def check(n_a: int, n_b: int) -> bool:
-        if reciprocal and n_a not in rank_sets[n_b] and n_b not in rank_sets[n_a]:
+        if reciprocal and not (n_a in rank_sets[n_b] and n_b in rank_sets[n_a]):
             return False
         if rbo_threshold is not None:
             score = sim_fn(rank_lists[n_a], rank_lists[n_b], top_k)
@@ -113,19 +119,19 @@ def influence_select(
 ) -> Tuple[List[int], Set[int], List[List[int]]]:
     """Influence / dominance selection for one query node.
 
-    For every neighbor used as an **anchor**, candidates from the same
-    top-``k`` list are kept in a local dominance set when they are not
-    mutually more influential toward each other than toward the query, and
-    not dominated by any already accepted member of that local set.
+    For every neighbor used as an **anchor**, every candidate ``!= anchor``
+    from the top-``k`` list is scanned in rank order and kept in a pass-local
+    non-dominated set only when neither ``anchor`` nor any already retained
+    member of that local set bilaterally dominates it with respect to
+    ``query`` (no first-candidate auto-acceptance).
 
-    ``anchors`` restricts that outer loop. ``None`` uses every neighbor,
-    which is the historical behavior. An empty anchor list adds no edges.
-    The anchor itself is a reference, not an automatic edge. Candidates stay
-    the full neighbor list.
+    ``anchors`` restricts that outer loop. ``None`` uses every neighbor.
+    An empty anchor list adds no edges. The anchor itself is a dominance
+    reference, not an automatic edge. Candidates stay the full neighbor list.
 
     Edges are materialized only when ``edge_filter(query, candidate)`` passes
-    (reciprocity and/or RBO). Insertion order of accepted neighbors is
-    preserved for later triangulation.
+    (mutual reciprocity and/or similarity threshold). Insertion order of
+    accepted neighbors is preserved for later triangulation.
 
     Returns
     -------
@@ -146,14 +152,6 @@ def influence_select(
 
         for candidate in neighbors:
             if candidate == anchor:
-                continue
-
-            if not local:
-                local.append(candidate)
-                if candidate not in accepted_set and edge_filter(query, candidate):
-                    accepted.append(candidate)
-                    accepted_set.add(candidate)
-                    edges.append([query, candidate])
                 continue
 
             # Skip if anchor and candidate dominate each other w.r.t. query.
