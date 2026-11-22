@@ -7,8 +7,8 @@ similarity (kNN / reciprocal kNN), which ignores diversity and can
 leave neighborhoods full of redundant neighbors.
 
 This repo is the plug-and-play construction of that graph. You pass a
-feature matrix $X \in \mathbb{R}^{N \times D}$ and get an undirected
-BRID-G graph. No dataset loaders, no GNN training.
+feature matrix $X \in \mathbb{R}^{N \times D}$ and get a BRID-G graph.
+No dataset loaders, no GNN training.
 
 ## 📝 Project Summary
 
@@ -22,21 +22,30 @@ from similarity search with diversity — to GCN graph construction.
 The idea is to prune mutually redundant edges inside a ranked kNN
 neighborhood, instead of treating every neighbor the same.
 
-In short, $(X, k, \text{hyperparameters}) \mapsto E$ in three stages:
+In short, $(X, k, \text{hyperparameters}) \mapsto E$ in the order
+`build_brid_g` runs:
 
-1. **Influence filtering** — prune redundancies inside the top-$k$
-   (influence dominance).
-2. **Triangulation** — put some local cohesion back, among the first
-   $t$ accepted neighbors, still under the same filter.
-3. **Structural filtering** — keep an edge only if the pair is
-   reciprocal and the ranked lists agree (RBO or Jaccard, $\geq \theta$).
-   A small set of mandatory top-$m$ edges is added without that filter.
-
-Canonical order in this implementation (thesis Cap. 4):
+1. **Ranking** — optional L2, then pairwise distance, influence, and
+   the top-$k$ lists (self excluded).
+2. **Anchors** — which of those neighbors are dominance references.
+3. **Influence** — for each anchor, every other candidate is tested
+   for bilateral dominance, including the nearest. A candidate is kept
+   in that pass only when neither the anchor nor an already retained
+   neighbor dominates it. The edge is written only if the pair is in
+   each other's top-$k$ (mutual reciprocity) and the ranked lists
+   agree (RBO or Jaccard, $\geq \theta$).
+4. **Triangulation** — pairs among the first $t$ accepted neighbors,
+   under the same filter.
+5. **Mandatory** — the top-$m$ neighbors, with no reciprocity or
+   similarity filter.
+6. **Assembly** — `edge_index` is the directed list: both directions
+   may appear, and the same ordered pair may repeat. The NetworkX
+   graph is the undirected simple graph on those edges.
 
 ```
-X  →  L2 (opt.)  →  top-k rankings
-   →  influence + filter  →  triangulation  →  mandatory  →  G
+X  →  L2 (opt.)  →  top-k rankings  →  anchors
+   →  influence + filter  →  triangulation + filter
+   →  mandatory  →  edge_index, G
 ```
 
 L2, when enabled, is only for ranking / influence. Keep the original
@@ -152,8 +161,8 @@ RBO is the truncated residual form to depth `k` with persistence `p`
 │   ├── config.py          # BridGConfig
 │   ├── ranking.py         # Distances, influence, kNN
 │   ├── similarity.py      # RBO / Jaccard
-│   ├── stages.py          # Influence, triangulation, mandatory
-│   └── io.py              # Undirected graph
+│   ├── stages.py          # Anchors, influence, triangulation, mandatory
+│   └── io.py              # Directed edge_index, undirected graph
 ├── examples/              # Minimal usage
 ├── tests/                 # pytest (+ parity vs. reference, if available)
 ├── pyproject.toml
@@ -203,8 +212,9 @@ from bridg import build_brid_g, BridGConfig
 features = np.random.randn(500, 128)
 
 edge_index, G = build_brid_g(features)
-# edge_index: (2, E), int64
-# G: networkx.Graph (undirected)
+# edge_index: (2, E), int64. Directed list: both directions
+# and duplicate pairs may appear.
+# G: networkx.Graph, the undirected simple graph on those edges
 print(G.number_of_nodes(), G.number_of_edges())
 ```
 
@@ -266,9 +276,8 @@ pytest -v tests/test_errors.py
 pytest -s -v -m slow --durations=10
 ```
 
-Parity tests compare the undirected edge set against
-`brid_g.graphs.create_graph_brid_n_rnn` when that package is
-importable. Otherwise they are skipped.
+`tests/test_parity.py` imports `brid_g.graphs` and is skipped when
+that package is not installed.
 
 ## 🎓 Author and Acknowledgements
 
