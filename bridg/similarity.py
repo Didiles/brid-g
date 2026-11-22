@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Callable, Dict, Sequence
+from typing import Callable, Dict, Sequence, Set
 
 RankList = Sequence[int]
+SetSimFn = Callable[[RankList, Set[int], int], float]
 
 
 def compute_jaccard(x: RankList, y: RankList, top_k: int) -> float:
@@ -65,6 +66,47 @@ def compute_rbo(
     return (1.0 - p) * score
 
 
+def jaccard_against_set(candidate: RankList, reference: Set[int], top_k: int) -> float:
+    """Jaccard of the candidate prefix against the full reference set.
+
+    The reference is not truncated. A growing union of anchor neighborhoods
+    therefore stays visible past depth ``top_k``.
+    """
+    selected = set(candidate[:top_k])
+    union = selected | reference
+    if not union:
+        return 0.0
+    return len(selected & reference) / len(union)
+
+
+def rbo_against_set(
+    candidate: RankList,
+    reference: Set[int],
+    top_k: int,
+    p: float = 0.9,
+) -> float:
+    """Truncated RBO of a rank list against an unordered reference set.
+
+    ``RBO = (1 - p) * sum_{d=1}^{k} p^{d-1} * |prefix(candidate, d) ∩ reference| / d``
+
+    Membership is tested against the whole set, so ids that entered the
+    reference after the first ``k`` positions still count when they appear
+    in the candidate.
+    """
+    limit = min(len(candidate), top_k)
+    seen: Set[int] = set()
+    overlap = 0
+    score = 0.0
+    for i in range(limit):
+        item = candidate[i]
+        if item not in seen:
+            seen.add(item)
+            if item in reference:
+                overlap += 1
+        score += (p ** i) * (overlap / (i + 1))
+    return (1.0 - p) * score
+
+
 SIMILARITY_FUNCTIONS: Dict[str, Callable[..., float]] = {
     "jaccard": compute_jaccard,
     "rbo": compute_rbo,
@@ -84,4 +126,23 @@ def get_similarity_fn(
         return _rbo
     if name == "jaccard":
         return compute_jaccard
+    raise ValueError(f"Unknown similarity function: {name!r}")
+
+
+def get_set_similarity_fn(
+    name: str,
+    rbo_p: float = 0.9,
+) -> SetSimFn:
+    """Return a ``(candidate, reference_set, top_k) -> float`` callable.
+
+    Used when the reference is a union of rank lists rather than one list.
+    """
+    if name == "rbo":
+
+        def _rbo(candidate: RankList, reference: Set[int], top_k: int) -> float:
+            return rbo_against_set(candidate, reference, top_k, p=rbo_p)
+
+        return _rbo
+    if name == "jaccard":
+        return jaccard_against_set
     raise ValueError(f"Unknown similarity function: {name!r}")

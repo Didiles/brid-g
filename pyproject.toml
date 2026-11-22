@@ -35,6 +35,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
+viz = ["plotly>=5.18"]
+classify = ["torch>=2.2"]
 
 [project.urls]
 Homepage = "https://github.com/Didiles/brid-g"

@@ -247,6 +247,9 @@ python examples/basic_usage.py
 | `reciprocal` | `True` | Require mutual top-`k` membership |
 | `similarity` | `"rbo"` | `"rbo"` or `"jaccard"` |
 | `rbo_p` | 0.9 | RBO persistence (truncated residual sum) |
+| `anchor_selection` | `"all"` | Dominance anchors: `"all"`, `"random"`, `"probabilistic"`, `"incremental"` |
+| `anchor_probability` | `0.5` | Inclusion probability when `anchor_selection="random"` |
+| `anchor_seed` | `0` | Seed for `"random"`, `"probabilistic"`, and `"incremental"` draws |
 
 ### Tests
 

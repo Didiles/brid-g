@@ -14,11 +14,12 @@ from .ranking import (
     knn_rankings,
     maybe_normalize_l2,
 )
-from .similarity import get_similarity_fn
+from .similarity import get_set_similarity_fn, get_similarity_fn
 from .stages import (
     add_mandatory,
     influence_select,
     make_edge_filter,
+    select_anchors,
     triangulate,
 )
 
@@ -35,7 +36,8 @@ def build_brid_g(
 
     1. Optional L2 normalization **for ranking only**
     2. Pairwise distances + influence; top-``k`` rankings (self excluded)
-    3. Influence / dominance selection; materialize edges if reciprocal ∧ RBO
+    3. Choose dominance anchors, then influence / dominance selection;
+       materialize edges if reciprocal ∧ RBO
     4. Triangulation among the first ``t`` accepted neighbors (still filtered)
     5. Mandatory top-``m`` edges **without** filtering
     6. Assemble undirected edge set
@@ -93,6 +95,8 @@ def build_brid_g(
     top_k = knn.shape[1]
 
     sim_fn = get_similarity_fn(config.similarity, rbo_p=config.rbo_p)
+    set_sim_fn = get_set_similarity_fn(config.similarity, rbo_p=config.rbo_p)
+    rng = np.random.default_rng(config.anchor_seed)
     edge_filter = make_edge_filter(
         rank_lists,
         rank_sets,
@@ -106,8 +110,19 @@ def build_brid_g(
     for query in range(num_nodes):
         neighbors = rank_lists[query]
 
+        anchors = select_anchors(
+            query,
+            neighbors,
+            rank_lists,
+            top_k,
+            mode=config.anchor_selection,
+            sim_fn=sim_fn,
+            set_sim_fn=set_sim_fn,
+            probability=config.anchor_probability,
+            rng=rng,
+        )
         accepted, accepted_set, infl_edges = influence_select(
-            query, neighbors, influence, edge_filter
+            query, neighbors, influence, edge_filter, anchors=anchors
         )
         edge_list.extend(infl_edges)
 

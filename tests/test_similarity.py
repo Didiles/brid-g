@@ -3,7 +3,14 @@
 import numpy as np
 import pytest
 
-from bridg.similarity import compute_jaccard, compute_rbo, get_similarity_fn
+from bridg.similarity import (
+    compute_jaccard,
+    compute_rbo,
+    get_set_similarity_fn,
+    get_similarity_fn,
+    jaccard_against_set,
+    rbo_against_set,
+)
 
 
 class TestJaccard:
@@ -56,3 +63,27 @@ class TestRBO:
         fn = get_similarity_fn("rbo", rbo_p=0.9)
         x = [0, 1, 2]
         assert fn(x, x, 3) == pytest.approx(compute_rbo(x, x, 3, p=0.9))
+
+
+class TestSimilarityAgainstSet:
+    def test_jaccard_keeps_the_full_reference(self):
+        # Intersection is {0}. The four extra reference ids enlarge the union.
+        assert jaccard_against_set([0, 9], {0, 1, 2, 3, 4}, 2) == pytest.approx(1.0 / 6.0)
+
+    def test_rbo_counts_reference_members_at_any_depth(self):
+        candidate = [0, 1, 2]
+        reference = {1, 99}
+        p = 0.9
+        # d=1: empty; d=2: one hit; d=3: still one hit.
+        expected = (1 - p) * (0.0 + (p ** 1) * 0.5 + (p ** 2) * (1.0 / 3.0))
+        assert rbo_against_set(candidate, reference, 3, p=p) == pytest.approx(expected)
+
+    def test_rbo_of_a_covered_candidate_is_the_residual_of_ones(self):
+        p = 0.9
+        score = rbo_against_set([0, 1], {0, 1, 99}, 2, p=p)
+        expected = (1 - p) * sum((p ** i) * 1.0 for i in range(2))
+        assert score == pytest.approx(expected)
+
+    def test_get_set_similarity_fn_rejects_unknown_metric(self):
+        with pytest.raises(ValueError, match="Unknown similarity"):
+            get_set_similarity_fn("cosine")

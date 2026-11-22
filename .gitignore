@@ -57,3 +57,6 @@ dmypy.json
 # Local scratch / data
 *.npz
 codigo.txt
+experiments/
+docs/
+data/flowers/

@@ -1,14 +1,23 @@
-"""Pipeline stages: influence selection, triangulation, mandatory edges."""
+"""Pipeline stages: anchor selection, influence, triangulation, mandatory edges."""
 
 from __future__ import annotations
 
-from typing import Callable, List, Optional, Sequence, Set, Tuple
+from typing import Callable, List, Optional, Protocol, Sequence, Set, Tuple
 
 import numpy as np
 
 RankLists = Sequence[Sequence[int]]
 RankSets = Sequence[Set[int]]
 EdgeFilter = Callable[[int, int], bool]
+ListSimFn = Callable[[Sequence[int], Sequence[int], int], float]
+SetSimFn = Callable[[Sequence[int], Set[int], int], float]
+_ANCHOR_MODES = ("all", "random", "probabilistic", "incremental")
+
+
+class RandomDraw(Protocol):
+    """Source of uniform draws in ``[0, 1)``, such as ``numpy.random.Generator``."""
+
+    def random(self) -> float: ...
 
 
 def make_edge_filter(
@@ -34,11 +43,73 @@ def make_edge_filter(
     return check
 
 
+def _keep_with_probability(score: float, rng: RandomDraw) -> bool:
+    """Draw a Bernoulli trial with probability ``clip(1 - score, 0, 1)``."""
+    probability = 1.0 - score
+    if probability < 0.0:
+        probability = 0.0
+    elif probability > 1.0:
+        probability = 1.0
+    return rng.random() < probability
+
+
+def select_anchors(
+    query: int,
+    neighbors: Sequence[int],
+    rank_lists: RankLists,
+    top_k: int,
+    *,
+    mode: str,
+    sim_fn: ListSimFn,
+    set_sim_fn: SetSimFn,
+    probability: float,
+    rng: RandomDraw,
+) -> List[int]:
+    """Choose the dominance anchors for one query, in rank order.
+
+    ``"all"`` returns every neighbor. ``"random"`` keeps each neighbor
+    independently with ``probability``. ``"probabilistic"`` keeps neighbor
+    ``n`` with probability ``1 - sim(rank(n), rank(query))``.
+    ``"incremental"`` uses that probability against the query top-``k``
+    unioned with the top-``k`` lists of anchors already chosen. The union
+    grows only when a draw succeeds, and the query set stays in it.
+
+    A probability of 0 never selects. A probability of 1 always selects,
+    because ``rng.random()`` draws from ``[0, 1)``.
+    """
+    if mode not in _ANCHOR_MODES:
+        allowed = ", ".join(_ANCHOR_MODES)
+        raise ValueError(f"anchor_selection must be one of: {allowed}")
+    if mode == "all":
+        return list(neighbors)
+    if mode == "random":
+        return [n for n in neighbors if rng.random() < probability]
+
+    query_list = rank_lists[query]
+    if mode == "probabilistic":
+        chosen: List[int] = []
+        for neighbor in neighbors:
+            score = sim_fn(rank_lists[neighbor], query_list, top_k)
+            if _keep_with_probability(score, rng):
+                chosen.append(neighbor)
+        return chosen
+
+    reference = set(query_list[:top_k])
+    chosen = []
+    for neighbor in neighbors:
+        score = set_sim_fn(rank_lists[neighbor], reference, top_k)
+        if _keep_with_probability(score, rng):
+            chosen.append(neighbor)
+            reference.update(rank_lists[neighbor][:top_k])
+    return chosen
+
+
 def influence_select(
     query: int,
     neighbors: Sequence[int],
     influence: np.ndarray,
     edge_filter: EdgeFilter,
+    anchors: Optional[Sequence[int]] = None,
 ) -> Tuple[List[int], Set[int], List[List[int]]]:
     """Influence / dominance selection for one query node.
 
@@ -46,6 +117,11 @@ def influence_select(
     top-``k`` list are kept in a local dominance set when they are not
     mutually more influential toward each other than toward the query, and
     not dominated by any already accepted member of that local set.
+
+    ``anchors`` restricts that outer loop. ``None`` uses every neighbor,
+    which is the historical behavior. An empty anchor list adds no edges.
+    The anchor itself is a reference, not an automatic edge. Candidates stay
+    the full neighbor list.
 
     Edges are materialized only when ``edge_filter(query, candidate)`` passes
     (reciprocity and/or RBO). Insertion order of accepted neighbors is
@@ -63,8 +139,9 @@ def influence_select(
     accepted: List[int] = []
     accepted_set: Set[int] = set()
     edges: List[List[int]] = []
+    anchor_list = neighbors if anchors is None else anchors
 
-    for anchor in neighbors:
+    for anchor in anchor_list:
         local: List[int] = []
 
         for candidate in neighbors:

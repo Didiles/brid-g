@@ -6,6 +6,9 @@ import math
 from dataclasses import dataclass
 from typing import Literal, Optional
 
+AnchorSelection = Literal["all", "random", "probabilistic", "incremental"]
+_ANCHOR_SELECTIONS = ("all", "random", "probabilistic", "incremental")
+
 DistanceMetric = Literal[
     "euclidean",
     "manhattan",
@@ -83,6 +86,21 @@ class BridGConfig:
         ``"jaccard"``.
     rbo_p :
         Persistence parameter for truncated RBO (paper default 0.9).
+    anchor_selection :
+        Which top-``k`` neighbors are used as dominance anchors.
+        ``"all"`` (default) uses every neighbor. ``"random"`` keeps each
+        neighbor independently with probability ``anchor_probability``.
+        ``"probabilistic"`` keeps neighbor ``n`` with probability
+        ``1 - similarity(rank(n), rank(query))``. ``"incremental"`` uses
+        that same probability against the query top-``k`` unioned with the
+        top-``k`` lists of anchors already chosen for that query. Neighbors
+        are considered in rank order (closest first).
+    anchor_probability :
+        Inclusion probability for ``anchor_selection="random"``. Ignored by
+        the other modes. Must be in ``[0, 1]``.
+    anchor_seed :
+        Seed for the draw used by ``"random"``, ``"probabilistic"``, and
+        ``"incremental"``. The same seed reproduces the same anchors.
     """
 
     k: int = 40
@@ -95,6 +113,9 @@ class BridGConfig:
     reciprocal: bool = True
     similarity: Literal["rbo", "jaccard"] = "rbo"
     rbo_p: float = 0.9
+    anchor_selection: AnchorSelection = "all"
+    anchor_probability: float = 0.5
+    anchor_seed: int = 0
 
     def __post_init__(self) -> None:
         if self.k < 1:
@@ -114,3 +135,16 @@ class BridGConfig:
             raise ValueError("similarity must be 'rbo' or 'jaccard'")
         if not (0.0 < self.rbo_p < 1.0):
             raise ValueError("rbo_p must be in (0, 1)")
+        if self.anchor_selection not in _ANCHOR_SELECTIONS:
+            allowed = ", ".join(_ANCHOR_SELECTIONS)
+            raise ValueError(f"anchor_selection must be one of: {allowed}")
+        probability = self.anchor_probability
+        if (
+            isinstance(probability, bool)
+            or not isinstance(probability, (int, float))
+            or not math.isfinite(probability)
+            or not (0.0 <= probability <= 1.0)
+        ):
+            raise ValueError("anchor_probability must be in [0, 1]")
+        if isinstance(self.anchor_seed, bool) or not isinstance(self.anchor_seed, int):
+            raise ValueError("anchor_seed must be an int")
